@@ -23,11 +23,6 @@ class BaseModule:
             return None
 
     def update_file_content(self, file_path, regex_pattern, replacement_line, backup=True):
-        """
-        Complex Regex Replace.
-        :param regex_pattern: The regex to find (e.g., r"^MinPasswordLength\s=\s\d+")
-        :param replacement_line: The exact line to write (e.g., "MinPasswordLength = 14")
-        """
         if not os.path.exists(file_path):
             self.logger.error(f"File {file_path} not found.")
             return False

@@ -17,7 +17,7 @@ class SeceditModule(BaseModule):
 
         # 2. Define Regex Pattern to find the specific key
         # Pattern looks for: KeyName = Value
-        pattern = f"^\\s*{key_name}\\s*=\s*(-?\d+)"
+        pattern = rf"^\s*{key_name}\s*=\s*(.*)$"
         replacement = f"{key_name} = {target_value}"
 
         # 3. Update Content using the BaseModule's regex engine

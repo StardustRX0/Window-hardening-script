@@ -1,3 +1,7 @@
+# --- General Settings (REQUIRED) ---
+general:
+  dry_run: true  # Set to 'false' to actually apply changes
+
 # 1.1 Password Policy (CIS Server 2022)
 
 1.1.1:
@@ -27,3 +31,43 @@
 1.1.7:
   enabled: true
   reversible: 0           # CIS: 0 (Disabled)
+
+# --- 1.2 Account Lockout Policy ---
+1.2.1:
+  enabled: true
+  duration: 15          # CIS: 15 or more minutes
+1.2.2:
+  enabled: true
+  threshold: 5          # CIS: 5 or fewer attempts, but not 0
+1.2.3:
+  enabled: true
+  admin_lockout: 1      # CIS: Enabled (1)
+1.2.4:
+  enabled: true
+  reset_after: 15       # CIS: 15 or more minutes
+
+# --- 2.2 User Rights Assignment (Privileges) ---
+# Format: List of Users/Groups. "Empty" means No One.
+2.2.1:
+  enabled: true
+  right: "SeTrustedCredManAccessPrivilege"
+  users: [] # CIS: No One
+
+2.2.2: # Access this computer from the network (DC Only example)
+  enabled: true
+  right: "SeNetworkLogonRight"
+  users: 
+    - "*S-1-5-32-544" # Administrators
+    - "*S-1-5-11"     # Authenticated Users
+    - "*S-1-5-9"      # Enterprise Domain Controllers
+
+2.2.4: # Act as part of the operating system
+  enabled: true
+  right: "SeTcbPrivilege"
+  users: [] # CIS: No One
+
+2.2.20: # Debug programs
+  enabled: true
+  right: "SeDebugPrivilege"
+  users: 
+    - "*S-1-5-32-544" # Administrators
