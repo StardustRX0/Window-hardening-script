@@ -9,6 +9,7 @@ class CIS_2_2_4(UserRightsModule):
         if not self.config.get(self.id, {}).get('enabled', False): return
         
         # Privilege: SeTcbPrivilege
+        # Config users should be [] (empty list)
         users = self.config.get(self.id, {}).get('users', [])
         
         self.apply_user_right("SeTcbPrivilege", users)
