@@ -1,0 +1,29 @@
+# 1.1 Password Policy (CIS Server 2022)
+
+1.1.1:
+  enabled: true
+  history_count: 24       # CIS: 24 or more passwords
+
+1.1.2:
+  enabled: true
+  max_age: 365            # CIS: 365 or fewer days, but not 0
+
+1.1.3:
+  enabled: true
+  min_age: 1              # CIS: 1 or more days
+
+1.1.4:
+  enabled: true
+  min_length: 14          # CIS: 14 or more characters
+
+1.1.5:
+  enabled: true
+  complexity: 1           # CIS: 1 (Enabled)
+
+1.1.6:
+  enabled: true
+  # No value needed, just boolean enable (Registry fix)
+
+1.1.7:
+  enabled: true
+  reversible: 0           # CIS: 0 (Disabled)
