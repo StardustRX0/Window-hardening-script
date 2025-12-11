@@ -9,7 +9,7 @@ class CIS_2_2_25(UserRightsModule):
         if not self.config.get(self.id, {}).get('enabled', False): return
         
         # Privilege: SeDenyInteractiveLogonRight
-        # CIS Recommendation (DC): Guests
+        # CIS Recommendation: Guests
         default_users = ["*S-1-5-32-546"]
         users = self.config.get(self.id, {}).get('users', default_users)
         

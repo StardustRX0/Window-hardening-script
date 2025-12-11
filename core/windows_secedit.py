@@ -21,7 +21,6 @@ class SeceditModule(BaseModule):
         replacement = f"{key_name} = {target_value}"
 
         # 3. Update Content using the BaseModule's regex engine
-        # Note: secedit files are usually UTF-16
         changed = self.update_file_content(temp_cfg, pattern, replacement)
 
         # 4. Apply Changes

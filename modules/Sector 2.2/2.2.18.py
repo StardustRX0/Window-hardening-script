@@ -2,7 +2,6 @@ from core.user_rights import UserRightsModule
 
 class CIS_2_2_18(UserRightsModule):
     def __init__(self, config):
-        # FIXED: Updated name to match the actual rule
         super().__init__(name="CIS 2.2.18 (Create symbolic links)", config=config)
         self.id = "2.2.18"
 

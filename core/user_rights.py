@@ -2,10 +2,6 @@ from core.windows_secedit import SeceditModule
 
 class UserRightsModule(SeceditModule):
     def apply_user_right(self, privilege_constant, desired_users_list):
-        """
-        :param privilege_constant: The internal Windows name (e.g., SeDebugPrivilege)
-        :param desired_users_list: A python list of strings (e.g., ['*S-1-5-32-544'])
-        """
         # Convert python list to secedit comma string
         # If list is empty, secedit uses empty string to denote "No One"
         target_val = ",".join(desired_users_list)

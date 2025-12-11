@@ -11,7 +11,6 @@ class BaseModule:
         self.logger = logging.getLogger(name)
 
     def run_command(self, command):
-        """Run shell commands (Linux) or PowerShell/CMD (Windows)"""
         try:
             result = subprocess.run(
                 command, shell=True, check=True, 

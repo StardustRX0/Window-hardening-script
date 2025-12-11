@@ -9,7 +9,7 @@ class CIS_2_2_21(UserRightsModule):
         if not self.config.get(self.id, {}).get('enabled', False): return
         
         # Privilege: SeDenyNetworkLogonRight
-        # CIS Recommendation (DC): Guests
+        # CIS Recommendation: Guests
         default_users = ["*S-1-5-32-546"]
         users = self.config.get(self.id, {}).get('users', default_users)
         
