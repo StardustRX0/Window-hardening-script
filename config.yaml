@@ -71,3 +71,33 @@ general:
   right: "SeDebugPrivilege"
   users: 
     - "*S-1-5-32-544" # Administrators
+
+
+# CIS 2.2.7 - Allow log on locally (DC Only)
+# Recommended: Administrators, ENTERPRISE DOMAIN CONTROLLERS
+2.2.7:
+  enabled: true
+  users:
+    - "*S-1-5-32-544" # Administrators
+    - "*S-1-5-9"      # Enterprise Domain Controllers
+
+# CIS 2.2.15 - Create a token object
+# Recommended: No One
+2.2.15:
+  enabled: true
+  users: []
+
+# CIS 2.2.21 - Deny access to this computer from the network (DC Only)
+# Recommended: Guests
+2.2.21:
+  enabled: true
+  users:
+    - "*S-1-5-32-546" # Guests
+
+# CIS 2.2.44 - Profile system performance
+# Recommended: Administrators, NT SERVICE\WdiServiceHost
+2.2.44:
+  enabled: true
+  users:
+    - "*S-1-5-32-544"            # Administrators
+    - "NT SERVICE\\WdiServiceHost" # WdiServiceHost
