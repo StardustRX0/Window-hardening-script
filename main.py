@@ -7,6 +7,9 @@ import os
 import importlib.util
 import inspect
 import sys
+import json
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from core.base_module import BaseModule
@@ -38,36 +41,74 @@ def load_config(path: Path) -> dict:
         sys.exit(1)
 
 
+def _iso_utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _guess_cis_id(hardening_task, module_path: str) -> str:
+    """
+    Try to infer CIS/control id from common attributes or filename:
+    - hardening_task.key / hardening_task.cis_id / hardening_task.id
+    - filename "1.1.1" or "1_1_1_1" -> normalize to dots
+    """
+    for attr in ("key", "cis_id", "id"):
+        v = getattr(hardening_task, attr, None)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+
+    stem = Path(module_path).stem  # e.g. "1.1.1" or "1_1_1_1"
+    # Normalize underscores to dots only if it looks like a numeric control id
+    if any(ch.isdigit() for ch in stem):
+        return stem.replace("_", ".")
+    return stem
+
+
+def _task_title(hardening_task) -> str:
+    for attr in ("title", "name", "description"):
+        v = getattr(hardening_task, attr, None)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return hardening_task.__class__.__name__
+
+
+def emit_json_event(jsonl_path: str, event: dict) -> None:
+    """
+    Append one JSON object per line (JSONL). Safe: never raises to caller.
+    """
+    try:
+        p = Path(jsonl_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    except Exception:
+        # Never break hardening execution because logging failed
+        pass
+
+
 def load_module_from_file(filepath: str, config: dict):
     """
-    Dynamically loads a Python file given a path (e.g., 'modules/1.1.4.py')
-    and instantiates the class inside it that inherits from BaseModule.
+    Dynamically loads a Python file given a path and instantiates the class
+    inside it that inherits from BaseModule.
     """
     module_name = os.path.basename(filepath).replace(".py", "")
 
-    # 1. Create the spec (how to load the file)
     spec = importlib.util.spec_from_file_location(module_name, filepath)
     if spec is None:
         print(f"[ERROR] Could not create spec for module: {filepath}")
         return None
 
-    # 2. Create the module object
     module = importlib.util.module_from_spec(spec)
 
-    # 3. Execute the module (runs the Python code inside)
     try:
         spec.loader.exec_module(module)  # type: ignore[attr-defined]
     except Exception as e:
         print(f"[ERROR] Could not load {filepath}: {e}")
         return None
 
-    # 4. Find the class in the module that inherits from BaseModule
-    for name, obj in inspect.getmembers(module):
+    for _, obj in inspect.getmembers(module):
         if inspect.isclass(obj) and issubclass(obj, BaseModule) and obj is not BaseModule:
-            # Instantiate and return the class
             return obj(config=config)
 
-    # If we reach here, no suitable class was found
     print(f"[WARN] No BaseModule subclass found in {filepath}")
     return None
 
@@ -75,22 +116,14 @@ def load_module_from_file(filepath: str, config: dict):
 def main(config_path: str | None = None):
     """
     Main entry point for the hardening framework.
-
-    - Loads and validates configuration.
-    - Discovers all module files under 'modules/' recursively.
-    - Executes each module's 'apply()' method in sorted order.
     """
     print("--- Python Hardening Framework (CIS Style) ---")
 
-    # 1. Resolve config path
-    if config_path:
-        cfg_path = Path(config_path).resolve()
-    else:
-        cfg_path = DEFAULT_CONFIG
-
+    # 1) Resolve config path
+    cfg_path = Path(config_path).resolve() if config_path else DEFAULT_CONFIG
     print(f"[INFO] Using config file: {cfg_path}")
 
-    # 2. Load & validate config
+    # 2) Load & validate config
     config = load_config(cfg_path)
 
     validator = ConfigValidator(config)
@@ -98,54 +131,128 @@ def main(config_path: str | None = None):
         print("CRITICAL: Configuration contains errors. Execution stopped.")
         sys.exit(1)
 
-    # 3. Discover module files recursively
+    # 3) JSON changelog settings
+    # Prefer env var so your Wazuh wrapper can control where it writes.
+    # Examples:
+    #  - Windows: C:\ProgramData\Wazuh\logs\hardening\Window-hardening-script.jsonl
+    #  - Linux:   /var/ossec/logs/hardening/Ubuntu-hardening-script.jsonl
+    jsonl_path = os.environ.get("HARDENING_JSONL_PATH") or ""
+    repo_name = os.environ.get("HARDENING_REPO_NAME") or str(REPO_ROOT.name)
+    os_name = os.environ.get("HARDENING_OS") or ("windows" if os.name == "nt" else "linux")
+    dry_run = bool(config.get("general", {}).get("dry_run", False))
+    run_id = os.environ.get("HARDENING_RUN_ID") or f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+
+    # 4) Discover module files recursively
     module_paths: list[str] = []
-
-    # Use the absolute modules directory
-    modules_dir_str = str(MODULES_DIR)
-
-    for root, dirs, files in os.walk(modules_dir_str):
+    for root, dirs, files in os.walk(str(MODULES_DIR)):
         for file in files:
-            # Only pick up .py files, ignore __init__.py
             if file.endswith(".py") and file != "__init__.py":
-                # Create the full path (e.g. 'modules/Sector 1.1/1.1.1.py')
-                full_path = os.path.join(root, file)
-                module_paths.append(full_path)
+                module_paths.append(os.path.join(root, file))
 
-    # Sort paths so they run in a consistent order
     module_paths.sort()
 
     print(f"[INFO] Modules directory: {MODULES_DIR}")
     print(f"[INFO] Found {len(module_paths)} modules.")
 
-    # 4. Run them
+    # 5) Run modules
     for full_path in module_paths:
         hardening_task = load_module_from_file(full_path, config)
 
-        if hardening_task:
-            try:
-                print(f"[INFO] Running module: {full_path}")
-                hardening_task.apply()
-            except Exception as e:
-                print(f"[ERROR] Execution failed for {full_path}: {e}")
+        if not hardening_task:
+            # Optional: record load failure as JSON
+            if jsonl_path:
+                emit_json_event(jsonl_path, {
+                    "timestamp": _iso_utc_now(),
+                    "hardening": {
+                        "repo": repo_name,
+                        "os": os_name,
+                        "run_id": run_id,
+                        "module_path": full_path,
+                        "result": "ERROR",
+                        "message": "Failed to load module (no BaseModule subclass found or import failed).",
+                        "dry_run": dry_run,
+                    }
+                })
+            continue
+
+        cis_id = _guess_cis_id(hardening_task, full_path)
+        title = _task_title(hardening_task)
+
+        try:
+            print(f"[INFO] Running module: {full_path}")
+            hardening_task.apply()
+            
+            events = []
+            if hasattr(hardening_task, "get_events"):
+                events = hardening_task.get_events()
+
+            if jsonl_path:
+                if not events:
+                    # No structured events emitted by the module → log generic success
+                    emit_json_event(jsonl_path, {
+                        "timestamp": _iso_utc_now(),
+                        "hardening": {
+                            "repo": repo_name,
+                            "os": os_name,
+                            "run_id": run_id,
+                            "cis_id": cis_id,
+                            "title": title,
+                            "module_path": full_path,
+                            "result": "SUCCESS",
+                            "message": "Module executed without emitting events.",
+                            "dry_run": dry_run,
+                        }
+                    })
+                else:
+                    # Export every CHANGED/OK/WARN/ERROR/SKIP line as a JSON event
+                    for ev in events:
+                        emit_json_event(jsonl_path, {
+                            "timestamp": _iso_utc_now(),
+                            "hardening": {
+                                "repo": repo_name,
+                                "os": os_name,
+                                "run_id": run_id,
+                                "cis_id": cis_id,
+                                "title": title,
+                                "module_path": full_path,
+                                "result": ev.get("result", "SUCCESS"),
+                                "message": ev.get("message", ""),
+                                "dry_run": dry_run,
+                            }
+                        })
+
+
+        except Exception as e:
+            print(f"[ERROR] Execution failed for {full_path}: {e}")
+
+            if jsonl_path:
+                emit_json_event(jsonl_path, {
+                    "timestamp": _iso_utc_now(),
+                    "hardening": {
+                        "repo": repo_name,
+                        "os": os_name,
+                        "run_id": run_id,
+                        "cis_id": cis_id,
+                        "title": title,
+                        "module_path": full_path,
+                        "result": "ERROR",
+                        "message": str(e),
+                        "dry_run": dry_run,
+                    }
+                })
 
 
 if __name__ == "__main__":
-    # Permission check for Windows / Linux
     import ctypes
 
     try:
-        # On Unix-like systems
         is_admin = os.getuid() == 0
     except AttributeError:
-        # On Windows
         is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
 
     if not is_admin:
         print("CRITICAL: Script must be run as Administrator/Root")
         sys.exit(1)
 
-    # Optional: accept a config path as the first argument
-    # This is what the Wazuh Active Response wrapper will use.
     config_arg = sys.argv[1] if len(sys.argv) > 1 else None
     main(config_arg)
