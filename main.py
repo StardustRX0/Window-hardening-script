@@ -136,7 +136,14 @@ def main(config_path: str | None = None):
     # Examples:
     #  - Windows: C:\ProgramData\Wazuh\logs\hardening\Window-hardening-script.jsonl
     #  - Linux:   /var/ossec/logs/hardening/Ubuntu-hardening-script.jsonl
-    jsonl_path = os.environ.get("HARDENING_JSONL_PATH") or ""
+    if os.name == "nt":
+        program_data = os.environ.get("ProgramData", r"C:\ProgramData")
+        default_jsonl = Path(program_data) / "Wazuh" / "logs" / "hardening" / "Window-hardening-script.jsonl"
+    else:
+        default_jsonl = Path("/var/ossec/logs/hardening/Ubuntu-hardening-script.jsonl")
+        
+    jsonl_path = os.environ.get("HARDENING_JSONL_PATH") or str(default_jsonl)
+
     repo_name = os.environ.get("HARDENING_REPO_NAME") or str(REPO_ROOT.name)
     os_name = os.environ.get("HARDENING_OS") or ("windows" if os.name == "nt" else "linux")
     dry_run = bool(config.get("general", {}).get("dry_run", False))
