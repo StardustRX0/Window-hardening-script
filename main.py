@@ -9,6 +9,7 @@ import inspect
 import sys
 import json
 import uuid
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -69,6 +70,22 @@ def _task_title(hardening_task) -> str:
         if isinstance(v, str) and v.strip():
             return v.strip()
     return hardening_task.__class__.__name__
+
+
+def _normalize_profile(value: object) -> str | None:
+    """Normalize profile strings to 'dc' or 'ms'. Returns None if unknown."""
+    if not isinstance(value, str):
+        return None
+    v = value.strip().lower()
+    aliases = {
+        "domain controller": "dc",
+        "domain_controller": "dc",
+        "dc": "dc",
+        "member server": "ms",
+        "member_server": "ms",
+        "ms": "ms",
+    }
+    return aliases.get(v)
 
 
 def emit_json_event(jsonl_path: str, event: dict) -> None:
@@ -147,6 +164,11 @@ def main(config_path: str | None = None):
     repo_name = os.environ.get("HARDENING_REPO_NAME") or str(REPO_ROOT.name)
     os_name = os.environ.get("HARDENING_OS") or ("windows" if os.name == "nt" else "linux")
     dry_run = bool(config.get("general", {}).get("dry_run", False))
+    # Profile: "dc" (Domain Controller) or "ms" (Member Server)
+    # You can set it in config.yaml (general.profile) or via env HARDENING_PROFILE.
+    active_profile = _normalize_profile(os.environ.get("HARDENING_PROFILE") or config.get("general", {}).get("profile"))
+    if active_profile is None:
+        active_profile = "ms"  # safe default
     run_id = os.environ.get("HARDENING_RUN_ID") or f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
 
     # 4) Discover module files recursively
@@ -184,6 +206,79 @@ def main(config_path: str | None = None):
 
         cis_id = _guess_cis_id(hardening_task, full_path)
         title = _task_title(hardening_task)
+
+        # Runner-level skip: don't run modules that are disabled/missing in config
+        # This prevents "disabled" modules from looking like "SUCCESS" in JSONL.
+        is_cis_like = re.match(r"^\d+(?:\.\d+)+$", str(cis_id or "")) is not None
+        if is_cis_like:
+            control_cfg = config.get(str(cis_id), None)
+            enabled = isinstance(control_cfg, dict) and bool(control_cfg.get("enabled", False))
+            if not enabled:
+                msg = "Disabled in config (enabled=false)" if isinstance(control_cfg, dict) else "No config entry found"
+                print(f"[SKIP]    [{cis_id}]: {msg}")
+                if jsonl_path:
+                    emit_json_event(jsonl_path, {
+                        "timestamp": _iso_utc_now(),
+                        "hardening": {
+                            "repo": repo_name,
+                            "os": os_name,
+                            "run_id": run_id,
+                            "cis_id": cis_id,
+                            "title": title,
+                            "module_path": full_path,
+                            "result": "SKIP",
+                            "message": msg,
+                            "dry_run": dry_run,
+                        }
+                    })
+                continue
+
+        # Runner-level profile gate ("dc" vs "ms")
+        # Priority: config per-control "profiles"/"profile" overrides module metadata
+        def _profiles_from_obj(obj):
+            out: list[str] = []
+            if obj is None:
+                return out
+            if isinstance(obj, str):
+                p = _normalize_profile(obj)
+                return [p] if p else out
+            if isinstance(obj, list):
+                for it in obj:
+                    p = _normalize_profile(it)
+                    if p and p not in out:
+                        out.append(p)
+            return out
+
+        effective_profiles: list[str] = []
+        if is_cis_like and isinstance(control_cfg, dict):
+            if "profiles" in control_cfg:
+                effective_profiles = _profiles_from_obj(control_cfg.get("profiles"))
+            elif "profile" in control_cfg:
+                effective_profiles = _profiles_from_obj(control_cfg.get("profile"))
+
+        if not effective_profiles:
+            effective_profiles = _profiles_from_obj(getattr(hardening_task, "profiles", None) or getattr(hardening_task, "profile", None))
+
+        # No profiles specified -> applies to both
+        if effective_profiles and active_profile not in effective_profiles:
+            msg = f"Profile mismatch: active={active_profile}, applies_to={','.join(effective_profiles)}"
+            print(f"[SKIP]    [{cis_id}]: {msg}")
+            if jsonl_path:
+                emit_json_event(jsonl_path, {
+                    "timestamp": _iso_utc_now(),
+                    "hardening": {
+                        "repo": repo_name,
+                        "os": os_name,
+                        "run_id": run_id,
+                        "cis_id": cis_id,
+                        "title": title,
+                        "module_path": full_path,
+                        "result": "SKIP",
+                        "message": msg,
+                        "dry_run": dry_run,
+                    }
+                })
+            continue
 
         try:
             print(f"[INFO] Running module: {full_path}")

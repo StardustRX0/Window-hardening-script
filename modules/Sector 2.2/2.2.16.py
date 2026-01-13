@@ -1,12 +1,13 @@
 from core.user_rights import UserRightsModule
 
 class CIS_2_2_16(UserRightsModule):
+    profiles = ['dc', 'ms']
+
     def __init__(self, config):
         super().__init__(name="CIS 2.2.16 (Create Global Objects)", config=config)
         self.id = "2.2.16"
 
     def apply(self):
-        if not self.config.get(self.id, {}).get('enabled', False): return
 
         # Privilege Constant: SeCreateGlobalPrivilege
         # Recommendation: Administrators, LOCAL SERVICE, NETWORK SERVICE, SERVICE

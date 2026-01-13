@@ -6,7 +6,6 @@ class CIS_1_2_4(SeceditModule):
         self.id = "1.2.4"
 
     def apply(self):
-        if not self.config.get(self.id, {}).get('enabled', False): return
 
         # Key: ResetLockoutCount. Value is in minutes.
         val = self.config.get(self.id, {}).get('reset_after', 15)

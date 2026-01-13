@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editors
+.vscode/
+
+# OS / misc
+.DS_Store
+Thumbs.db
+
+# Generated artifacts
+*.bak
+*.jsonl
+*.sdb
+*.inf

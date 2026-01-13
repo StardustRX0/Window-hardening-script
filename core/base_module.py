@@ -60,19 +60,57 @@ class BaseModule:
     # -------------------------
     # Existing helpers
     # -------------------------
-    def run_command(self, command):
+    def run_command(self, command, timeout: int = 120):
+        """Run a shell command.
+
+        - If `command` is a string: runs via shell (backwards compatible)
+        - If `command` is a list: runs without shell (safer)
+        """
         try:
+            use_shell = isinstance(command, str)
             result = subprocess.run(
-                command, shell=True, check=True,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                command,
+                shell=use_shell,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=timeout,
             )
-            return result.stdout.strip()
+            return (result.stdout or "").strip()
+        except subprocess.TimeoutExpired:
+            self.logger.error("Command timed out")
+            self.log_error("Command timed out")
+            return None
         except subprocess.CalledProcessError as e:
             # Keep logger, but also record an event (so runner can export it)
-            err = (e.stderr or "").strip()
+            err = ((e.stderr or e.stdout) or "").strip()
             self.logger.error(f"Command failed: {err}")
             self.log_error(f"Command failed: {err}")
             return None
+
+
+    def run_command_result(self, command, timeout: int = 120):
+        """Run a command and return (returncode, stdout, stderr) without raising.
+
+        Use this when a non-zero exit code is expected/acceptable (e.g., checking if a registry value exists).
+        """
+        try:
+            use_shell = isinstance(command, str)
+            result = subprocess.run(
+                command,
+                shell=use_shell,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=timeout,
+            )
+            return result.returncode, (result.stdout or "").strip(), (result.stderr or "").strip()
+        except subprocess.TimeoutExpired:
+            self.logger.error("Command timed out")
+            return 124, "", "Command timed out"
+
 
     def update_file_content(self, file_path, regex_pattern, replacement_line, backup=True):
         if not os.path.exists(file_path):

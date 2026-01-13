@@ -6,7 +6,6 @@ class CIS_1_2_2(SeceditModule):
         self.id = "1.2.2"
 
     def apply(self):
-        if not self.config.get(self.id, {}).get('enabled', False): return
 
         # Key: LockoutBadCount. Value is number of attempts.
         val = self.config.get(self.id, {}).get('threshold', 5)

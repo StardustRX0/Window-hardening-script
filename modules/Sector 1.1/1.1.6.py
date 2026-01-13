@@ -6,9 +6,6 @@ class CIS_1_1_6(BaseModule):
         self.id = "1.1.6"
 
     def apply(self):
-        if not self.config.get(self.id, {}).get('enabled', False):
-            return
-            
         # This is a Registry Setting
         # Key: HKLM\SYSTEM\CurrentControlSet\Control\SAM
         # Value: RelaxMinimumPasswordLengthLimits (DWORD) -> 1

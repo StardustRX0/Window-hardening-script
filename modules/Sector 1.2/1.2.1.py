@@ -6,7 +6,6 @@ class CIS_1_2_1(SeceditModule):
         self.id = "1.2.1"
 
     def apply(self):
-        if not self.config.get(self.id, {}).get('enabled', False): return
 
         # Key: LockoutDuration. Value is in minutes.
         val = self.config.get(self.id, {}).get('duration', 15)

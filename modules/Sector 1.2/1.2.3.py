@@ -6,8 +6,7 @@ class CIS_1_2_3(BaseModule):
         self.id = "1.2.3"
 
     def apply(self):
-        if not self.config.get(self.id, {}).get('enabled', False): return
-            
+
         key = r"HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
         val_name = "AllowAdministratorLockout"
         target_data = str(self.config.get(self.id, {}).get('admin_lockout', 1))

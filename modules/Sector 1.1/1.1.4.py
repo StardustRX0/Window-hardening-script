@@ -6,9 +6,6 @@ class CIS_1_1_4(SeceditModule):
         self.id = "1.1.4"
 
     def apply(self):
-        if not self.config.get(self.id, {}).get('enabled', False):
-            return
-
         # Key in secedit: MinimumPasswordLength
         target_val = self.config.get(self.id, {}).get('min_length', 14)
         self.apply_secedit_policy("MinimumPasswordLength", target_val)
