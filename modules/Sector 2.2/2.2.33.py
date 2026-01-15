@@ -1,18 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
 
-class CIS_2_2_33(UserRightsModule):
+class CIS_2_2_33(ChangeTableModule):
+    cis_id = "2.2.33"
+    title = 'Impersonate a client after authentication'
     profiles = ['ms']
 
-    profiles = ['ms']
-
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.33 (Impersonate a client after authentication)", config=config)
-        self.id = "2.2.33"
-
-    def apply(self):
-        # Privilege Constant: SeImpersonatePrivilege
-        default_users = ['*S-1-5-32-544', '*S-1-5-19', '*S-1-5-20', '*S-1-5-6']
-        users = self.config.get(self.id, {}).get('users', default_users)
-
-        self.apply_user_right("SeImpersonatePrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeImpersonatePrivilege',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-544', '*S-1-5-19', '*S-1-5-20', '*S-1-5-6'],
+            "label": 'Impersonate a client after authentication',
+        }
+    ]

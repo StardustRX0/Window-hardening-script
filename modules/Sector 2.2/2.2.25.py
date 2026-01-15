@@ -1,17 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_25(UserRightsModule):
+
+class CIS_2_2_25(ChangeTableModule):
+    cis_id = "2.2.25"
+    title = 'Deny Interactive Logon'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.25 (Deny Interactive Logon)", config=config)
-        self.id = "2.2.25"
-
-    def apply(self):
-
-        # Privilege: SeDenyInteractiveLogonRight
-        # CIS Recommendation: Guests
-        default_users = ["*S-1-5-32-546"]
-        users = self.config.get(self.id, {}).get('users', default_users)
-        
-        self.apply_user_right("SeDenyInteractiveLogonRight", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeDenyInteractiveLogonRight',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-546'],
+            "label": 'Deny Interactive Logon',
+        }
+    ]

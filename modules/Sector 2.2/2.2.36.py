@@ -1,15 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_36(UserRightsModule):
+
+class CIS_2_2_36(ChangeTableModule):
+    cis_id = "2.2.36"
+    title = 'Lock Pages in Memory'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.36 (Lock Pages in Memory)", config=config)
-        self.id = "2.2.36"
-
-    def apply(self):
-
-        # Privilege: SeLockMemoryPrivilege
-        # Recommendation: No One (Empty list)
-        users = self.config.get(self.id, {}).get('users', [])
-        self.apply_user_right("SeLockMemoryPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeLockMemoryPrivilege',
+            "users_from": "users",
+            "users_default": [],
+            "label": 'Lock Pages in Memory',
+        }
+    ]

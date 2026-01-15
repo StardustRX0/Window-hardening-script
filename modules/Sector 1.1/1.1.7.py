@@ -1,11 +1,16 @@
-from core.windows_secedit import SeceditModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_1_1_7(SeceditModule):
-    def __init__(self, config):
-        super().__init__(name="CIS 1.1.7 (Reversible Enc)", config=config)
-        self.id = "1.1.7"
 
-    def apply(self):
-        # Key in secedit: ClearTextPassword (0 = Disabled)
-        target_val = self.config.get(self.id, {}).get('reversible', 0)
-        self.apply_secedit_policy("ClearTextPassword", target_val)
+class CIS_1_1_7(ChangeTableModule):
+    cis_id = "1.1.7"
+    title = 'Reversible Enc'
+
+    CHANGES = [
+        {
+            "kind": "secedit_system_access",
+            "key": 'ClearTextPassword',
+            "value_from": 'reversible',
+            "default": 0,
+            "label": 'Reversible Enc',
+        }
+    ]

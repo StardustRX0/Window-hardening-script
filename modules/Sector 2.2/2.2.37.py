@@ -1,17 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_37(UserRightsModule):
+
+class CIS_2_2_37(ChangeTableModule):
+    cis_id = "2.2.37"
+    title = 'Log on as a batch job'
     profiles = ['dc']
 
-    def __init__(self, config):
-        # FIXED: Updated name to match the actual rule
-        super().__init__(name="CIS 2.2.37 (Log on as a batch job)", config=config)
-        self.id = "2.2.37"
-
-    def apply(self):
-
-        # Privilege: SeBatchLogonRight (Log on as a batch job)
-        # CIS Recommendation: Administrators (*S-1-5-32-544)
-        users = self.config.get(self.id, {}).get('users', ["*S-1-5-32-544"])
-        
-        self.apply_user_right("SeBatchLogonRight", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeBatchLogonRight',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-544'],
+            "label": 'Log on as a batch job',
+        }
+    ]

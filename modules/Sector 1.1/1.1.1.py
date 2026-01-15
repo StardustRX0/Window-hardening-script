@@ -1,11 +1,16 @@
-from core.windows_secedit import SeceditModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_1_1_1(SeceditModule):
-    def __init__(self, config):
-        super().__init__(name="CIS 1.1.1 (Pass History)", config=config)
-        self.id = "1.1.1"
 
-    def apply(self):
-        # Key in secedit: PasswordHistorySize
-        target_val = self.config.get(self.id, {}).get('history_count', 24)
-        self.apply_secedit_policy("PasswordHistorySize", target_val)
+class CIS_1_1_1(ChangeTableModule):
+    cis_id = "1.1.1"
+    title = 'Pass History'
+
+    CHANGES = [
+        {
+            "kind": "secedit_system_access",
+            "key": 'PasswordHistorySize',
+            "value_from": 'history_count',
+            "default": 24,
+            "label": 'Pass History',
+        }
+    ]

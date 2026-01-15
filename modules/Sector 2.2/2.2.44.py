@@ -1,17 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_44(UserRightsModule):
+
+class CIS_2_2_44(ChangeTableModule):
+    cis_id = "2.2.44"
+    title = 'Profile System Performance'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.44 (Profile System Performance)", config=config)
-        self.id = "2.2.44"
-
-    def apply(self):
-
-        # Privilege: SeSystemProfilePrivilege
-        # CIS Recommendation: Administrators, NT SERVICE\WdiServiceHost
-        default_users = ["*S-1-5-32-544", "NT SERVICE\\WdiServiceHost"]
-        users = self.config.get(self.id, {}).get('users', default_users)
-        
-        self.apply_user_right("SeSystemProfilePrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeSystemProfilePrivilege',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-544', 'NT SERVICE\\WdiServiceHost'],
+            "label": 'Profile System Performance',
+        }
+    ]

@@ -1,11 +1,16 @@
-from core.windows_secedit import SeceditModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_1_1_4(SeceditModule):
-    def __init__(self, config):
-        super().__init__(name="CIS 1.1.4 (Min Length)", config=config)
-        self.id = "1.1.4"
 
-    def apply(self):
-        # Key in secedit: MinimumPasswordLength
-        target_val = self.config.get(self.id, {}).get('min_length', 14)
-        self.apply_secedit_policy("MinimumPasswordLength", target_val)
+class CIS_1_1_4(ChangeTableModule):
+    cis_id = "1.1.4"
+    title = 'Min Length'
+
+    CHANGES = [
+        {
+            "kind": "secedit_system_access",
+            "key": 'MinimumPasswordLength',
+            "value_from": 'min_length',
+            "default": 14,
+            "label": 'Min Length',
+        }
+    ]

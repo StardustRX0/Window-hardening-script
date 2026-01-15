@@ -1,16 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_15(UserRightsModule):
+
+class CIS_2_2_15(ChangeTableModule):
+    cis_id = "2.2.15"
+    title = 'Create Token Object'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.15 (Create Token Object)", config=config)
-        self.id = "2.2.15"
-
-    def apply(self):
-
-        # Privilege: SeCreateTokenPrivilege
-        # CIS Recommendation: No One (Empty List)
-        users = self.config.get(self.id, {}).get('users', [])
-        
-        self.apply_user_right("SeCreateTokenPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeCreateTokenPrivilege',
+            "users_from": "users",
+            "users_default": [],
+            "label": 'Create Token Object',
+        }
+    ]

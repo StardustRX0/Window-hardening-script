@@ -1,11 +1,16 @@
-from core.windows_secedit import SeceditModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_1_1_3(SeceditModule):
-    def __init__(self, config):
-        super().__init__(name="CIS 1.1.3 (Min Age)", config=config)
-        self.id = "1.1.3"
 
-    def apply(self):
-        # Key in secedit: MinimumPasswordAge
-        target_val = self.config.get(self.id, {}).get('min_age', 1)
-        self.apply_secedit_policy("MinimumPasswordAge", target_val)
+class CIS_1_1_3(ChangeTableModule):
+    cis_id = "1.1.3"
+    title = 'Min Age'
+
+    CHANGES = [
+        {
+            "kind": "secedit_system_access",
+            "key": 'MinimumPasswordAge',
+            "value_from": 'min_age',
+            "default": 1,
+            "label": 'Min Age',
+        }
+    ]

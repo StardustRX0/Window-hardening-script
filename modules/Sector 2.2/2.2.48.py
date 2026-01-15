@@ -1,15 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_48(UserRightsModule):
+
+class CIS_2_2_48(ChangeTableModule):
+    cis_id = "2.2.48"
+    title = 'Sync Directory Data'
     profiles = ['dc']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.48 (Sync Directory Data)", config=config)
-        self.id = "2.2.48"
-
-    def apply(self):
-
-        # Privilege: SeSyncAgentPrivilege
-        # Recommendation: No One
-        users = self.config.get(self.id, {}).get('users', [])
-        self.apply_user_right("SeSyncAgentPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeSyncAgentPrivilege',
+            "users_from": "users",
+            "users_default": [],
+            "label": 'Sync Directory Data',
+        }
+    ]

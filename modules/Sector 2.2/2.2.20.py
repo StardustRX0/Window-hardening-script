@@ -1,16 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_20(UserRightsModule):
+
+class CIS_2_2_20(ChangeTableModule):
+    cis_id = "2.2.20"
+    title = 'Debug Programs'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.20 (Debug Programs)", config=config)
-        self.id = "2.2.20"
-
-    def apply(self):
-
-        # Privilege: SeDebugPrivilege
-        # Config users: ['*S-1-5-32-544']
-        users = self.config.get(self.id, {}).get('users', ["*S-1-5-32-544"])
-        
-        self.apply_user_right("SeDebugPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeDebugPrivilege',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-544'],
+            "label": 'Debug Programs',
+        }
+    ]

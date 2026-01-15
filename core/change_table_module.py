@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
+import os
 import re
+import tempfile
+import uuid
+from typing import Any, Dict, List, Optional, Tuple
 
 from core.base_module import BaseModule
-from core.windows_secedit import SeceditModule
+
 
 
 class ChangeTableModule(BaseModule):
@@ -26,7 +28,7 @@ class ChangeTableModule(BaseModule):
     # Optional metadata used by the runner and logs
     cis_id: Optional[str] = None
     title: Optional[str] = None
-    profiles: Optional[List[str]] = None  # e.g. ["dc"], ["ms"]
+    profiles: Optional[List[str]] = None  # e.g. ["dc"], ["ms"], or ["dc", "ms"]
 
     # The "table" of changes for this module
     CHANGES: List[Dict[str, Any]] = []
@@ -50,66 +52,256 @@ class ChangeTableModule(BaseModule):
                 # Leave as-is if it's not iterable
                 pass
 
+
+    # ------------------------------------------------------------------
+    # Secedit helpers (kept here so we only need one core module type)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _secedit_read_text(path: str) -> Tuple[str, str]:
+        """Return (content, encoding) for a secedit-exported INF."""
+        try:
+            with open(path, "r", encoding="utf-16") as f:
+                return f.read(), "utf-16"
+        except UnicodeError:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read(), "utf-8"
+
+    @staticmethod
+    def _secedit_write_text(path: str, content: str, encoding: str) -> None:
+        with open(path, "w", encoding=encoding) as f:
+            f.write(content)
+
+    @staticmethod
+    def _secedit_set_kv_in_section(content: str, key: str, value: str, section: str) -> Tuple[str, bool]:
+        """Set `key = value` within [section]. Returns (new_content, changed)."""
+        desired_line = f"{key} = {value}".rstrip()
+
+        # Normalize newlines
+        lines = content.splitlines()
+
+        # Find section header
+        section_re = re.compile(rf"^\s*\[{re.escape(section)}\]\s*$", re.IGNORECASE)
+        header_idx = None
+        for i, line in enumerate(lines):
+            if section_re.match(line):
+                header_idx = i
+                break
+
+        if header_idx is None:
+            # Section doesn't exist -> append section at end
+            if lines and lines[-1].strip() != "":
+                lines.append("")
+            lines.extend([f"[{section}]", desired_line])
+            return "\n".join(lines) + "\n", True
+
+        # Determine section bounds: from header_idx+1 to next [Section] or EOF
+        end_idx = len(lines)
+        next_section_re = re.compile(r"^\s*\[.*\]\s*$")
+        for j in range(header_idx + 1, len(lines)):
+            if next_section_re.match(lines[j]):
+                end_idx = j
+                break
+
+        # Look for existing key within section
+        key_re = re.compile(rf"^\s*{re.escape(key)}\s*=\s*(.*)$", re.IGNORECASE)
+        for j in range(header_idx + 1, end_idx):
+            m = key_re.match(lines[j])
+            if not m:
+                continue
+            current_line = f"{key} = {m.group(1).strip()}".rstrip()
+            if current_line == desired_line:
+                return content, False
+            lines[j] = desired_line
+            return "\n".join(lines) + "\n", True
+
+        # Key not found -> insert before end_idx (end of section)
+        lines.insert(end_idx, desired_line)
+        return "\n".join(lines) + "\n", True
+
+    def _apply_secedit_kv_batch(self, changes: List[Dict[str, str]]) -> None:
+        """Apply multiple secedit key/value changes with a single export/configure."""
+        if not changes:
+            return
+
+        tmp_dir = tempfile.gettempdir()
+        tmp_token = f"secedit-batch-{uuid.uuid4().hex[:8]}"
+        temp_cfg = os.path.join(tmp_dir, f"{tmp_token}.inf")
+        temp_db = os.path.join(tmp_dir, f"{tmp_token}.sdb")
+
+        try:
+            # Export policy to INF
+            self.run_command(f'secedit /export /cfg "{temp_cfg}" /quiet')
+            if not os.path.exists(temp_cfg):
+                self.log_error("Failed to export security policy via secedit.")
+                return
+
+            content, encoding = self._secedit_read_text(temp_cfg)
+
+            any_changed = False
+            per_change_changed: List[Tuple[Dict[str, str], bool]] = []
+            for c in changes:
+                key = str(c.get("key", "")).strip()
+                val = str(c.get("value", "")).strip()
+                section = str(c.get("section", "System Access")).strip() or "System Access"
+                label = str(c.get("label") or key).strip()
+
+                if not key:
+                    self.log_error("Invalid secedit change: missing 'key'")
+                    per_change_changed.append((c, False))
+                    continue
+
+                new_content, changed = self._secedit_set_kv_in_section(content, key, val, section)
+                content = new_content if changed else content
+                any_changed = any_changed or changed
+                per_change_changed.append(({
+                    "key": key,
+                    "value": val,
+                    "section": section,
+                    "label": label,
+                }, changed))
+
+            # Log unchanged as OK
+            for info, changed in per_change_changed:
+                if not changed:
+                    self.log_ok(f"{info['label']} already set in [{info['section']}]")
+
+            if not any_changed:
+                return
+
+            # Dry run
+            if self.config.get("general", {}).get("dry_run"):
+                for info, changed in per_change_changed:
+                    if changed:
+                        self.log_change(
+                            f"(DRY RUN) Would set {info['key']} = {info['value']} in [{info['section']}]"
+                        )
+                return
+
+            # Write updated INF and configure once
+            self._secedit_write_text(temp_cfg, content, encoding)
+            self.run_command(f'secedit /configure /db "{temp_db}" /cfg "{temp_cfg}" /quiet')
+
+            for info, changed in per_change_changed:
+                if changed:
+                    self.log_change(f"Enforced {info['key']} = {info['value']} in [{info['section']}]")
+
+        finally:
+            for p in (temp_cfg, temp_db, f"{temp_cfg}.bak"):
+                try:
+                    if p and os.path.exists(p):
+                        os.remove(p)
+                except Exception:
+                    pass
+
+
+    def _get_control_cfg(self) -> Optional[Dict[str, Any]]:
+        """Return this module's per-control config dict (e.g. config['1.1.1'])."""
+        for key in (getattr(self, 'id', None), getattr(self, 'cis_id', None)):
+            if isinstance(key, str) and isinstance(self.config.get(key), dict):
+                return self.config.get(key)  # type: ignore[return-value]
+        return None
+
+    def _resolve_list_from_config(self, path: str, default: Optional[List[str]] = None) -> List[str]:
+        """Resolve a list from the module's config section using a dotted path.
+
+        - If missing, returns `default` (or []).
+        - If present but not a list, logs an error and returns `default`.
+        """
+        dflt = list(default or [])
+        p = (path or '').strip()
+        if not p:
+            return dflt
+
+        control_cfg = self._get_control_cfg()
+        if not isinstance(control_cfg, dict):
+            return dflt
+
+        cur = control_cfg
+        for part in p.split('.'):
+            if isinstance(cur, dict) and part in cur:
+                cur = cur[part]
+            else:
+                return dflt
+
+        if cur is None:
+            return dflt
+        if not isinstance(cur, list):
+            self.log_error(f"Config value '{p}' must be a list")
+            return dflt
+        return [str(u) for u in cur]
+
+
     def _resolve_value(self, row: Dict[str, Any]) -> Optional[str]:
         """Resolve a row's value.
 
         Supports:
           - value: literal (string/int/bool)
           - value_from: pull from this control's config, e.g. "name" or "nested.key"
+
+        Optional defaults:
+          - default / default_value: used when the config path is missing/empty
+          - allow_empty: allow an empty string
         """
-        if "value_from" in row and row.get("value_from") is not None:
-            path = str(row.get("value_from")).strip()
-            if not path:
-                self.log_error("Invalid change row: value_from is empty")
+        default_val = row.get('default', row.get('default_value'))
+
+        if 'value_from' in row and row.get('value_from') is not None:
+            cfg_path = str(row.get('value_from')).strip()
+            if not cfg_path:
+                self.log_error('Invalid change row: value_from is empty')
                 return None
 
-            # Prefer the per-control config for this CIS id
-            control_cfg = None
-            for key in (getattr(self, "id", None), getattr(self, "cis_id", None)):
-                if isinstance(key, str) and isinstance(self.config.get(key), dict):
-                    control_cfg = self.config.get(key)
-                    break
-
+            control_cfg = self._get_control_cfg()
             if not isinstance(control_cfg, dict):
-                self.log_error(f"Missing config section for value_from '{path}'")
+                if default_val is not None:
+                    resolved = str(default_val).strip()
+                    return str(row.get('value_template') or '{value}').format(value=resolved) if row.get('value_template') is not None else resolved
+                self.log_error(f"Missing config section for value_from '{cfg_path}'")
                 return None
 
             cur: Any = control_cfg
-            for part in path.split("."):
+            for part in cfg_path.split('.'):
                 if isinstance(cur, dict) and part in cur:
                     cur = cur[part]
                 else:
-                    self.log_error(f"Missing config value '{path}' (not found at '{part}')")
+                    if default_val is not None:
+                        cur = default_val
+                        break
+                    self.log_error(f"Missing config value '{cfg_path}' (not found at '{part}')")
                     return None
 
             if cur is None or (isinstance(cur, str) and not cur.strip()):
-                if bool(row.get("allow_empty", False)):
-                    return ""
-                self.log_error(f"Config value '{path}' is empty")
-                return None
+                if bool(row.get('allow_empty', False)):
+                    cur = ''
+                elif default_val is not None:
+                    cur = default_val
+                else:
+                    self.log_error(f"Config value '{cfg_path}' is empty")
+                    return None
 
             resolved = str(cur).strip()
-
-            tmpl = row.get("value_template")
+            tmpl = row.get('value_template')
             if tmpl is not None:
                 try:
                     return str(tmpl).format(value=resolved)
                 except Exception as e:
-                    self.log_error(f"Invalid value_template for '{path}': {e}")
+                    self.log_error(f"Invalid value_template for '{cfg_path}': {e}")
                     return None
-
             return resolved
 
-        v = row.get("value")
-        if v is None and "target_value" in row:
-            v = row.get("target_value")
+        v = row.get('value')
+        if v is None and 'target_value' in row:
+            v = row.get('target_value')
         if v is None:
-            if bool(row.get("allow_empty", False)):
-                return ""
-            self.log_error("Invalid change row: missing 'value'")
-            return None
+            if default_val is not None:
+                v = default_val
+            elif bool(row.get('allow_empty', False)):
+                v = ''
+            else:
+                self.log_error("Invalid change row: missing 'value'")
+                return None
+
         resolved = str(v).strip()
-        tmpl = row.get("value_template")
+        tmpl = row.get('value_template')
         if tmpl is not None:
             try:
                 return str(tmpl).format(value=resolved)
@@ -117,6 +309,7 @@ class ChangeTableModule(BaseModule):
                 self.log_error(f"Invalid value_template: {e}")
                 return None
         return resolved
+
 
     def _build_secedit_changes(self) -> List[Dict[str, str]]:
         """Normalize CHANGES rows into secedit key/value/section records."""
@@ -150,15 +343,31 @@ class ChangeTableModule(BaseModule):
                 continue
 
             if kind in ("user_right", "privilege_rights", "secedit_privilege_rights"):
+                # Right name can be literal or pulled from config
                 right = str(row.get("right") or row.get("key") or "").strip()
-                users = row.get("users")
-                if users is None:
-                    users = []
-                if not isinstance(users, list):
-                    self.log_error(f"Invalid users for {right}: must be a list")
-                    users_list: List[str] = []
+                if not right:
+                    rf = row.get("right_from")
+                    if rf:
+                        right = str(self._resolve_value({"value_from": rf, "default": row.get("right_default")}) or "").strip()
+
+                if not right:
+                    self.log_error("Invalid user_right change: missing 'right'")
+                    continue
+
+                users_default = row.get("users_default", [])
+                users_list: List[str] = []
+
+                if row.get("users_from") is not None:
+                    users_list = self._resolve_list_from_config(str(row.get("users_from")), default=list(users_default) if isinstance(users_default, list) else [])
                 else:
-                    users_list = [str(u) for u in users]
+                    users = row.get("users")
+                    if users is None:
+                        users = users_default
+                    if isinstance(users, list):
+                        users_list = [str(u) for u in users]
+                    else:
+                        self.log_error(f"Invalid users for {right}: must be a list")
+                        users_list = list(users_default) if isinstance(users_default, list) else []
 
                 out.append({
                     "key": right,
@@ -517,7 +726,7 @@ class ChangeTableModule(BaseModule):
         """Apply all changes listed in CHANGES."""
         secedit_changes = self._build_secedit_changes()
         if secedit_changes:
-            SeceditModule.apply_kv_batch(self, secedit_changes)
+            self._apply_secedit_kv_batch(secedit_changes)
 
         # Registry policy (direct registry enforcement)
         self._apply_registry_policy_changes()

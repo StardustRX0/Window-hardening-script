@@ -10,7 +10,7 @@ class Module(ChangeTableModule):
         {
             "kind": "secedit_registry",
             "key": r"MACHINE\System\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedExactPaths\Machine",
-            "value": "7,System\CurrentControlSet\Control\ProductOptions,System\CurrentControlSet\Control\Server Applications,Software\Microsoft\Windows NT\CurrentVersion",
-            "label": "Remotely accessible registry paths (AllowedExactPaths\Machine)",
+            "value": r"7,System\CurrentControlSet\Control\ProductOptions,System\CurrentControlSet\Control\Server Applications,Software\Microsoft\Windows NT\CurrentVersion",
+            "label": r"Remotely accessible registry paths (AllowedExactPaths\Machine)",
         }
     ]

@@ -1,17 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_11(UserRightsModule):
+
+class CIS_2_2_11(ChangeTableModule):
+    cis_id = "2.2.11"
+    title = 'Back up files and directories'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        # FIXED: Updated name to match the actual rule
-        super().__init__(name="CIS 2.2.11 (Back up files and directories)", config=config)
-        self.id = "2.2.11"
-
-    def apply(self):
-
-        # Privilege: SeBackupPrivilege (Back up files and directories)
-        # CIS Recommendation: Administrators (*S-1-5-32-544)
-        users = self.config.get(self.id, {}).get('users', ["*S-1-5-32-544"])
-        
-        self.apply_user_right("SeBackupPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeBackupPrivilege',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-544'],
+            "label": 'Back up files and directories',
+        }
+    ]

@@ -1,18 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
 
-class CIS_2_2_45(UserRightsModule):
+class CIS_2_2_45(ChangeTableModule):
+    cis_id = "2.2.45"
+    title = 'Replace a process level token'
     profiles = ['dc', 'ms']
 
-    profiles = ['dc', 'ms']
-
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.45 (Replace a process level token)", config=config)
-        self.id = "2.2.45"
-
-    def apply(self):
-        # Privilege Constant: SeAssignPrimaryTokenPrivilege
-        default_users = ['*S-1-5-19', '*S-1-5-20']
-        users = self.config.get(self.id, {}).get('users', default_users)
-
-        self.apply_user_right("SeAssignPrimaryTokenPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeAssignPrimaryTokenPrivilege',
+            "users_from": "users",
+            "users_default": ['*S-1-5-19', '*S-1-5-20'],
+            "label": 'Replace a process level token',
+        }
+    ]

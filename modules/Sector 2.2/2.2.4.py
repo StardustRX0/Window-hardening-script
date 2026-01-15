@@ -1,16 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_4(UserRightsModule):
+
+class CIS_2_2_4(ChangeTableModule):
+    cis_id = "2.2.4"
+    title = 'Act as OS'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.4 (Act as OS)", config=config)
-        self.id = "2.2.4"
-
-    def apply(self):
-
-        # Privilege: SeTcbPrivilege
-        # Config users should be [] (empty list)
-        users = self.config.get(self.id, {}).get('users', [])
-        
-        self.apply_user_right("SeTcbPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeTcbPrivilege',
+            "users_from": "users",
+            "users_default": [],
+            "label": 'Act as OS',
+        }
+    ]

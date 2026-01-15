@@ -1,17 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_24(UserRightsModule):
+
+class CIS_2_2_24(ChangeTableModule):
+    cis_id = "2.2.24"
+    title = 'Deny Service Logon'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.24 (Deny Service Logon)", config=config)
-        self.id = "2.2.24"
-
-    def apply(self):
-
-        # Privilege: SeDenyServiceLogonRight
-        # CIS Recommendation: Guests
-        default_users = ["*S-1-5-32-546"]
-        users = self.config.get(self.id, {}).get('users', default_users)
-        
-        self.apply_user_right("SeDenyServiceLogonRight", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeDenyServiceLogonRight',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-546'],
+            "label": 'Deny Service Logon',
+        }
+    ]

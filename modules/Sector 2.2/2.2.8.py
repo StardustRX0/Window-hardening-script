@@ -1,18 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
 
-class CIS_2_2_8(UserRightsModule):
+class CIS_2_2_8(ChangeTableModule):
+    cis_id = "2.2.8"
+    title = 'Allow log on locally'
     profiles = ['ms']
 
-    profiles = ['ms']
-
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.8 (Allow log on locally)", config=config)
-        self.id = "2.2.8"
-
-    def apply(self):
-        # Privilege Constant: SeInteractiveLogonRight
-        default_users = ['*S-1-5-32-544']
-        users = self.config.get(self.id, {}).get('users', default_users)
-
-        self.apply_user_right("SeInteractiveLogonRight", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeInteractiveLogonRight',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-544'],
+            "label": 'Allow log on locally',
+        }
+    ]

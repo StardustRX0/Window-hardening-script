@@ -1,17 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_9(UserRightsModule):
+
+class CIS_2_2_9(ChangeTableModule):
+    cis_id = "2.2.9"
+    title = 'Remote Desktop Log on'
     profiles = ['dc']
 
-    def __init__(self, config):
-        # FIXED: Updated name to match the actual rule
-        super().__init__(name="CIS 2.2.9 (Remote Desktop Log on)", config=config)
-        self.id = "2.2.9"
-
-    def apply(self):
-
-        # Privilege: SeRemoteInteractiveLogonRight (Allow log on through Remote Desktop Services)
-        # CIS Recommendation: Administrators (*S-1-5-32-544)
-        users = self.config.get(self.id, {}).get('users', ["*S-1-5-32-544"])
-        
-        self.apply_user_right("SeRemoteInteractiveLogonRight", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeRemoteInteractiveLogonRight',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-544'],
+            "label": 'Remote Desktop Log on',
+        }
+    ]

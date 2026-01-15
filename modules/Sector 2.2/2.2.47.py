@@ -1,17 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_47(UserRightsModule):
+
+class CIS_2_2_47(ChangeTableModule):
+    cis_id = "2.2.47"
+    title = 'Shut down the system'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        # FIXED: Updated name to match the actual rule
-        super().__init__(name="CIS 2.2.47 (Shut down the system)", config=config)
-        self.id = "2.2.47"
-
-    def apply(self):
-
-        # Privilege: SeShutdownPrivilege (Shut down the system)
-        # CIS Recommendation: Administrators (*S-1-5-32-544)
-        users = self.config.get(self.id, {}).get('users', ["*S-1-5-32-544"])
-        
-        self.apply_user_right("SeShutdownPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeShutdownPrivilege',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-544'],
+            "label": 'Shut down the system',
+        }
+    ]

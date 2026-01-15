@@ -1,12 +1,16 @@
-from core.windows_secedit import SeceditModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_1_2_1(SeceditModule):
-    def __init__(self, config):
-        super().__init__(name="CIS 1.2.1 (Lockout Duration)", config=config)
-        self.id = "1.2.1"
 
-    def apply(self):
+class CIS_1_2_1(ChangeTableModule):
+    cis_id = "1.2.1"
+    title = 'Lockout Duration'
 
-        # Key: LockoutDuration. Value is in minutes.
-        val = self.config.get(self.id, {}).get('duration', 15)
-        self.apply_secedit_policy("LockoutDuration", val)
+    CHANGES = [
+        {
+            "kind": "secedit_system_access",
+            "key": 'LockoutDuration',
+            "value_from": 'duration',
+            "default": 15,
+            "label": 'Lockout Duration',
+        }
+    ]

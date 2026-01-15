@@ -1,8 +1,12 @@
 """Example: a table-driven module.
 
-Copy it into /modules and rename it to your CIS id
+This file lives in /examples so it WON'T be executed automatically.
+When you're ready, copy it into /modules and rename it to your CIS id
 (e.g. modules/Sector 2.3/2.3.1.2.py).
 
+The main idea:
+- You only edit the CHANGES list (a small "table")
+- The base class handles dry-run, logging, secedit export/configure, etc.
 """
 
 from core.change_table_module import ChangeTableModule

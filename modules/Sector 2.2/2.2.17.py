@@ -1,15 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_17(UserRightsModule):
+
+class CIS_2_2_17(ChangeTableModule):
+    cis_id = "2.2.17"
+    title = 'Shared Objects'
     profiles = ['dc', 'ms']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.17 (Shared Objects)", config=config)
-        self.id = "2.2.17   "
-
-    def apply(self):
-
-        # Privilege: SeCreatePermanentPrivilege
-        # Recommendation: No One (Empty list)
-        users = self.config.get(self.id, {}).get('users', [])
-        self.apply_user_right("SeCreatePermanentPrivilege", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeCreatePermanentPrivilege',
+            "users_from": "users",
+            "users_default": [],
+            "label": 'Shared Objects',
+        }
+    ]

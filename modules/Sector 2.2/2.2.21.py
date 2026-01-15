@@ -1,17 +1,17 @@
-from core.user_rights import UserRightsModule
+from core.change_table_module import ChangeTableModule
 
-class CIS_2_2_21(UserRightsModule):
+
+class CIS_2_2_21(ChangeTableModule):
+    cis_id = "2.2.21"
+    title = 'Deny Network Access'
     profiles = ['dc']
 
-    def __init__(self, config):
-        super().__init__(name="CIS 2.2.21 (Deny Network Access)", config=config)
-        self.id = "2.2.21"
-
-    def apply(self):
-
-        # Privilege: SeDenyNetworkLogonRight
-        # CIS Recommendation: Guests
-        default_users = ["*S-1-5-32-546"]
-        users = self.config.get(self.id, {}).get('users', default_users)
-        
-        self.apply_user_right("SeDenyNetworkLogonRight", users)
+    CHANGES = [
+        {
+            "kind": "user_right",
+            "right": 'SeDenyNetworkLogonRight',
+            "users_from": "users",
+            "users_default": ['*S-1-5-32-546'],
+            "label": 'Deny Network Access',
+        }
+    ]
