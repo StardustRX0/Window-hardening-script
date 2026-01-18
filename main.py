@@ -194,7 +194,7 @@ def main(config_path: str | None = None):
                     "timestamp": _iso_utc_now(),
                     "hardening": {
                         "repo": repo_name,
-                        "os": os_name,
+                        "platform": os_name,
                         "run_id": run_id,
                         "module_path": full_path,
                         "result": "ERROR",

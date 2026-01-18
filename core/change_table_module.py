@@ -54,7 +54,7 @@ class ChangeTableModule(BaseModule):
 
 
     # ------------------------------------------------------------------
-    # Secedit helpers (kept here so we only need one core module type)
+    # Secedit helpers
     # ------------------------------------------------------------------
     @staticmethod
     def _secedit_read_text(path: str) -> Tuple[str, str]:
